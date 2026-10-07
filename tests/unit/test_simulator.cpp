@@ -3,18 +3,30 @@
 
 using namespace ntn::common;
 
+/**
+ * @brief Verifies that a newly instantiated Simulator starts at time 0.
+ * 
+ * @param Inputs: Default constructed Simulator.
+ * @param Expected: now() returns 0.
+ */
 TEST(SimulatorTest, InitialTimeIsZero) {
     Simulator sim;
     EXPECT_EQ(sim.now(), 0);
 }
 
+/**
+ * @brief Verifies that the simulator executes a scheduled event and advances its clock.
+ * 
+ * @param Inputs: An event scheduled at a 1000ns delay.
+ * @param Expected: The event's lambda is executed, and the clock jumps to 1000ns.
+ */
 TEST(SimulatorTest, ExecutesScheduledEventAndAdvancesTime) {
     Simulator sim;
     bool executed = false;
 
     sim.schedule(1000, [&]() {
         executed = true;
-        EXPECT_EQ(sim.now(), 1000); // Time should be exactly 1000ns when this runs
+        EXPECT_EQ(sim.now(), 1000); 
     });
 
     sim.run();
@@ -23,11 +35,16 @@ TEST(SimulatorTest, ExecutesScheduledEventAndAdvancesTime) {
     EXPECT_EQ(sim.now(), 1000);
 }
 
+/**
+ * @brief Verifies that the Priority Queue correctly sorts events chronologically.
+ * 
+ * @param Inputs: Events scheduled out of order (at delays 5000ns, 1000ns, 3000ns).
+ * @param Expected: Execution order is exactly 1000ns, then 3000ns, then 5000ns.
+ */
 TEST(SimulatorTest, EventsExecuteInChronologicalOrder) {
     Simulator sim;
     std::vector<int> execution_order;
 
-    // Schedule out of order to ensure Priority Queue sorts them
     sim.schedule(5000, [&]() { execution_order.push_back(3); });
     sim.schedule(1000, [&]() { execution_order.push_back(1); });
     sim.schedule(3000, [&]() { execution_order.push_back(2); });
@@ -41,20 +58,32 @@ TEST(SimulatorTest, EventsExecuteInChronologicalOrder) {
     EXPECT_EQ(sim.now(), 5000);
 }
 
+/**
+ * @brief Verifies that run(duration) pauses execution without flushing the entire queue.
+ * 
+ * @param Inputs: Events at 1000ns, 3000ns, 5000ns. run() is called with a 2000ns duration limit.
+ * @param Expected: Only the 1000ns event fires. Clock pauses exactly at 2000ns.
+ */
 TEST(SimulatorTest, RunWithSpecificDuration) {
     Simulator sim;
     int execution_count = 0;
 
     sim.schedule(1000, [&]() { execution_count++; });
-    sim.schedule(3000, [&]() { execution_count++; }); // Should NOT run
-    sim.schedule(5000, [&]() { execution_count++; }); // Should NOT run
+    sim.schedule(3000, [&]() { execution_count++; }); 
+    sim.schedule(5000, [&]() { execution_count++; }); 
 
-    sim.run(2000); // Run for 2000ns
+    sim.run(2000); 
 
     EXPECT_EQ(execution_count, 1);
-    EXPECT_EQ(sim.now(), 2000); // Clock should pause exactly at the boundary
+    EXPECT_EQ(sim.now(), 2000); 
 }
 
+/**
+ * @brief Verifies that a cancelable protocol Timer fires correctly if not stopped.
+ * 
+ * @param Inputs: A timer started for 5000ns.
+ * @param Expected: Timer fires, is_running() transitions to false.
+ */
 TEST(TimerTest, TimerFiresCorrectly) {
     Simulator sim;
     Timer timer(sim);
@@ -72,6 +101,12 @@ TEST(TimerTest, TimerFiresCorrectly) {
     EXPECT_EQ(sim.now(), 5000);
 }
 
+/**
+ * @brief Verifies that calling stop() on a timer prevents its callback from firing.
+ * 
+ * @param Inputs: A timer started for 5000ns, but stopped at 2000ns via another event.
+ * @param Expected: The timer's timeout lambda does not execute.
+ */
 TEST(TimerTest, StoppedTimerDoesNotFire) {
     Simulator sim;
     Timer timer(sim);
@@ -81,7 +116,6 @@ TEST(TimerTest, StoppedTimerDoesNotFire) {
         fired = true;
     });
 
-    // Schedule an event at 2000ns that stops the timer early
     sim.schedule(2000, [&]() {
         timer.stop();
     });
@@ -90,11 +124,15 @@ TEST(TimerTest, StoppedTimerDoesNotFire) {
 
     EXPECT_FALSE(fired);
     EXPECT_FALSE(timer.is_running());
-    // The simulator clock will still advance to 5000ns because the lambda
-    // wrapper inside Timer is still in the queue, it just becomes a no-op.
     EXPECT_EQ(sim.now(), 5000);
 }
 
+/**
+ * @brief Verifies that restarting a timer overwrites the original timeout.
+ * 
+ * @param Inputs: Timer started for 2000ns, then restarted at 1000ns for an additional 3000ns.
+ * @param Expected: The original 2000ns timeout does not fire. Only the new 4000ns timeout fires.
+ */
 TEST(TimerTest, RestartedTimerCancelsPreviousTimeout) {
     Simulator sim;
     Timer timer(sim);
@@ -102,21 +140,17 @@ TEST(TimerTest, RestartedTimerCancelsPreviousTimeout) {
 
     timer.start(2000, [&]() {
         fire_count++;
-        // This shouldn't run because it's overwritten before it fires
     });
 
-    // At 1000ns, we restart the timer for another 3000ns
     sim.schedule(1000, [&]() {
         timer.start(3000, [&]() {
             fire_count++;
-            EXPECT_EQ(sim.now(), 4000); // 1000 + 3000
+            EXPECT_EQ(sim.now(), 4000); 
         });
     });
 
     sim.run();
 
-    // The timer should only fire ONCE, at 4000ns.
     EXPECT_EQ(fire_count, 1);
     EXPECT_EQ(sim.now(), 4000);
 }
-
