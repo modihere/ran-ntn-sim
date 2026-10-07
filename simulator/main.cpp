@@ -130,8 +130,16 @@ int main(int argc, char** argv) {
         
         dashboard.render();
         
-        // Slow down simulation so the user can observe the TUI
-        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        if (!sync_valid) {
+            std::cout << "\n\033[33m[INTERRUPT] Uplink Sync is INVALID! Simulation paused.\033[0m\n";
+            std::cout << "Press ENTER to resume simulation... " << std::flush;
+            std::cin.get();
+            // Clear screen cleanly so next render paints from scratch
+            dashboard.clear();
+        } else {
+            // Slow down simulation so the user can observe the TUI
+            std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        }
 
         sim.schedule(update_interval, periodic_update);
     };

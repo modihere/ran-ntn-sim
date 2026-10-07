@@ -1,10 +1,29 @@
 #include "dashboard.h"
 #include <iostream>
 #include <iomanip>
+#ifdef _WIN32
+#include <windows.h>
+#endif
 
 namespace ntn::ui {
 
-Dashboard::Dashboard() = default;
+Dashboard::Dashboard() {
+    enable_virtual_terminal();
+}
+
+void Dashboard::enable_virtual_terminal() {
+#ifdef _WIN32
+    // Enable ANSI escape sequences for Windows consoles
+    HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
+    if (hOut != INVALID_HANDLE_VALUE) {
+        DWORD dwMode = 0;
+        if (GetConsoleMode(hOut, &dwMode)) {
+            dwMode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
+            SetConsoleMode(hOut, dwMode);
+        }
+    }
+#endif
+}
 
 void Dashboard::update_simulation_time(uint64_t time_ns) {
     current_time_ns_ = time_ns;
@@ -26,9 +45,14 @@ void Dashboard::update_rach_state(const std::string& state_str) {
     rach_state_ = state_str;
 }
 
-void Dashboard::render() const {
-    // Clear screen and move cursor to top-left using ANSI escape codes
-    std::cout << "\033[2J\033[H";
+void Dashboard::render() {
+    if (first_render_) {
+        // Clear entire screen on first render
+        std::cout << "\033[2J";
+        first_render_ = false;
+    }
+    // Move cursor to top-left for in-place update
+    std::cout << "\033[H";
     
     std::cout << "========================================================================\n";
     std::cout << "                   NTN-Aware 5G NR RAN Emulator                         \n";
@@ -61,3 +85,4 @@ void Dashboard::clear() const {
 }
 
 } // namespace ntn::ui
+

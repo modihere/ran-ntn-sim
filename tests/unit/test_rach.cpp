@@ -61,3 +61,4 @@ TEST(RachTest, ContentionLost) {
     
     EXPECT_EQ(rach.get_state(), RachState::FAILED);
 }
+

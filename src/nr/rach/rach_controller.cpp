@@ -85,3 +85,4 @@ RachState RachController::get_state() const {
 }
 
 } // namespace ntn::nr
+

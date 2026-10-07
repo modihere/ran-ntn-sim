@@ -9,3 +9,4 @@ target_link_libraries(ntn_nr
     ntn_timing 
     spdlog::spdlog
 )
+

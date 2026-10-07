@@ -16,10 +16,13 @@ public:
     void update_rach_state(const std::string& state_str);
     
     // Render
-    void render() const;
+    void render();
     void clear() const;
 
 private:
+    void enable_virtual_terminal();
+
+    bool first_render_{true};
     uint64_t current_time_ns_{0};
     double slant_range_km_{0.0};
     double elevation_deg_{0.0};
@@ -31,3 +34,4 @@ private:
 };
 
 } // namespace ntn::ui
+
