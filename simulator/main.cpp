@@ -6,6 +6,7 @@
 #include "../src/ntn/geometry/orbit_propagator.h"
 #include "../src/ntn/geometry/propagation.h"
 #include "../src/ntn/timing/timing_engine.h"
+#include "../src/nr/rach/rach_controller.h"
 
 using namespace ntn::common;
 using namespace ntn::geometry;
@@ -32,6 +33,7 @@ int main(int argc, char** argv) {
 
     Simulator sim;
     NtnTimingEngine timing_engine;
+    ntn::nr::RachController rach(sim, timing_engine);
     
     uint32_t scs = config.value("scs_khz", 15);
     timing_engine.set_scs_khz(scs);
@@ -58,6 +60,25 @@ int main(int argc, char** argv) {
     
     Time_ns simulation_duration = config.value("duration_ms", 10000) * 1000000ULL;
     Time_ns update_interval = config.value("update_interval_ms", 100) * 1000000ULL;
+
+    // Trigger RACH at 1 second
+    sim.schedule(1000000000ULL, [&]() {
+        rach.trigger_rach();
+        
+        // Mock gNB sending Msg2 (RAR) after half RTT + processing time
+        Time_ns owd = timing_engine.get_common_ta() / 2;
+        sim.schedule(owd + 5000000ULL, [&]() {
+            if (rach.get_state() == ntn::nr::RachState::WAIT_MSG2) {
+                rach.receive_msg2(sim.now());
+                
+                // Mock gNB sending Msg4 after Msg3 arrives (which takes RTT + K_offset + proc time)
+                Time_ns msg3_arrival = sim.now() + owd + (timing_engine.get_k_offset_slots() * 1000000ULL) + 2000000ULL;
+                sim.schedule(msg3_arrival - sim.now() + 5000000ULL, [&]() {
+                    rach.receive_msg4(true);
+                });
+            }
+        });
+    });
 
     std::function<void()> periodic_update;
     periodic_update = [&]() {

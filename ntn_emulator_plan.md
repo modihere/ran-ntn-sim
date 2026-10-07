@@ -67,3 +67,45 @@ Run GoogleTest suite via `ctest --test-dir build`:
 2. Observe the terminal output prominently highlighting $K_{\text{offset}}$, Common TA, and Satellite Position.
 3. Confirm real-time dynamic changes to $K_{\text{offset}}$ as the satellite passes overhead.
 
+
+**Next Immediate Goal: Phase 4 (4-Step RACH Procedure with Timing Sensitivity)**
+Implement the Random Access Procedure state machine in `src/nr/rach/rach_controller.h/cpp` utilizing the common DES engine. It will model the Msg1 -> Msg2 -> Msg3 -> Msg4 exchange. Crucially, it must incorporate the NTN delays: extending the `ra-ResponseWindow` to wait for Msg2 (based on round-trip time) and scheduling Msg3 transmission using the $K_{\text{offset}}$ computed by the Timing Engine.
+
+## Proposed Changes for Phase 4
+
+### NR RACH Controller (`src/nr/rach`)
+Models the UE-side RACH state machine.
+
+#### `rach_controller.h` & `.cpp`
+```cpp
+namespace ntn::nr {
+enum class RachState { IDLE, WAIT_MSG2, WAIT_MSG4, COMPLETED, FAILED };
+
+class RachController {
+public:
+    RachController(common::Simulator& sim, timing::NtnTimingEngine& timing);
+    
+    void trigger_rach();
+    void receive_msg2(common::Time_ns rx_time);
+    void receive_msg4(bool contention_won);
+    
+    RachState get_state() const;
+
+private:
+    common::Simulator& sim_;
+    timing::NtnTimingEngine& timing_;
+    RachState state_{RachState::IDLE};
+    common::Timer ra_response_window_timer_;
+    common::Timer contention_resolution_timer_;
+    
+    void on_rar_timeout();
+    void on_contention_timeout();
+};
+}
+```
+
+### Simulator Integration
+Update `simulator/main.cpp` to trigger a RACH attempt and log the state transitions as it successfully syncs (or fails due to timing drift).
+
+### Verification
+* Unit tests in `tests/unit/test_rach.cpp` verifying success, RAR timeout, and Msg4 contention failure.
