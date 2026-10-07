@@ -1,0 +1,33 @@
+#pragma once
+
+#include <string>
+#include <cstdint>
+
+namespace ntn::ui {
+
+class Dashboard {
+public:
+    Dashboard();
+    
+    // Updates
+    void update_simulation_time(uint64_t time_ns);
+    void update_geometry(double slant_range_km, double elevation_deg, const std::string& sat_pos_str);
+    void update_timing(uint32_t k_offset, uint64_t common_ta_ns, bool sync_valid);
+    void update_rach_state(const std::string& state_str);
+    
+    // Render
+    void render() const;
+    void clear() const;
+
+private:
+    uint64_t current_time_ns_{0};
+    double slant_range_km_{0.0};
+    double elevation_deg_{0.0};
+    std::string sat_pos_str_;
+    uint32_t k_offset_{0};
+    uint64_t common_ta_ns_{0};
+    bool sync_valid_{true};
+    std::string rach_state_{"IDLE"};
+};
+
+} // namespace ntn::ui

@@ -7,7 +7,11 @@
 #include "../src/ntn/geometry/propagation.h"
 #include "../src/ntn/timing/timing_engine.h"
 #include "../src/nr/rach/rach_controller.h"
-
+#include "../src/ui/tui/dashboard.h"
+#include <thread>
+#include <chrono>
+#include <sstream>
+#include <iomanip>
 using namespace ntn::common;
 using namespace ntn::geometry;
 using namespace ntn::timing;
@@ -34,6 +38,18 @@ int main(int argc, char** argv) {
     Simulator sim;
     NtnTimingEngine timing_engine;
     ntn::nr::RachController rach(sim, timing_engine);
+    ntn::ui::Dashboard dashboard;
+
+    auto rach_state_to_string = [](ntn::nr::RachState state) -> std::string {
+        switch (state) {
+            case ntn::nr::RachState::IDLE: return "IDLE";
+            case ntn::nr::RachState::WAIT_MSG2: return "WAIT_MSG2";
+            case ntn::nr::RachState::WAIT_MSG4: return "WAIT_MSG4";
+            case ntn::nr::RachState::COMPLETED: return "\033[32mCOMPLETED\033[0m";
+            case ntn::nr::RachState::FAILED: return "\033[31mFAILED\033[0m";
+            default: return "UNKNOWN";
+        }
+    };
     
     uint32_t scs = config.value("scs_khz", 15);
     timing_engine.set_scs_khz(scs);
@@ -98,13 +114,24 @@ int main(int argc, char** argv) {
 
         bool sync_valid = timing_engine.is_ul_sync_valid(now);
 
-        spdlog::info("Time: {}ms | Sat: [{:.0f}, {:.0f}, {:.0f}] | Range: {:.2f}km | K_offset: {} slots | Common TA: {}ns | Sync: {}",
-                     now / 1000000,
-                     sat_pos.x_m, sat_pos.y_m, sat_pos.z_m,
-                     slant_range / 1000.0,
-                     timing_engine.get_k_offset_slots(),
-                     timing_engine.get_common_ta(),
-                     sync_valid ? "VALID" : "INVALID");
+        std::stringstream ss;
+        ss << "[" << std::fixed << std::setprecision(0) << sat_pos.x_m << ", "
+           << sat_pos.y_m << ", " << sat_pos.z_m << "]";
+
+        dashboard.update_simulation_time(now);
+        // Dummy elevation calculation for visualization
+        double elevation = 90.0 - ((slant_range - 600000.0) / 400000.0) * 45.0;
+        if (elevation < 0) elevation = 0;
+        if (elevation > 90) elevation = 90;
+        
+        dashboard.update_geometry(slant_range / 1000.0, elevation, ss.str());
+        dashboard.update_timing(timing_engine.get_k_offset_slots(), timing_engine.get_common_ta(), sync_valid);
+        dashboard.update_rach_state(rach_state_to_string(rach.get_state()));
+        
+        dashboard.render();
+        
+        // Slow down simulation so the user can observe the TUI
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
 
         sim.schedule(update_interval, periodic_update);
     };
