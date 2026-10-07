@@ -82,7 +82,21 @@ ctest --test-dir build --output-on-failure
 
 ---
 
-## 📁 5. Repository Structure
+## ⚙️ 5. Configuration & Interactivity
+
+The emulator uses **JSON** for static configuration (e.g., `config/ntn_scenario.json`), utilizing the lightweight `nlohmann_json` library.
+
+### Interactive Terminal Parameters
+During the live Terminal UI (TUI) simulation, the following parameters can be dynamically edited to observe real-time system responses:
+*   **$K_{\text{offset}}$**: Modify scheduling delay and observe RACH success/failures.
+*   **Satellite Velocity / Altitude**: Simulate faster passes and watch Doppler/Delay shift.
+*   **Common TA & Drift**: Inject drift and watch sync validity timers expire.
+
+> **Note on Coordinate System**: For protocol layer isolation and deterministic reproducibility, the emulator uses a simplified 3D Cartesian system (stationary ground UE, straight-line satellite pass) rather than a full SGP4/ECEF orbital model. This is highlighted dynamically in the TUI.
+
+---
+
+## 📁 6. Repository Structure
 
 * `src/common/` — Event engine, discrete clock, timers, logging, and statistics.
 * `src/ntn/` — Orbital dynamics, geometry, slant range delay, Doppler, timing advance, and SIB19 model.
@@ -91,3 +105,4 @@ ctest --test-dir build --output-on-failure
 * `simulator/` — Simulation harness, scenario runners, and terminal UI visualizer.
 * `docs/` — 3GPP mappings, architectural design, state machines, and decision records.
 * `tests/` — GoogleTest unit, integration, and scenario regression suites.
+

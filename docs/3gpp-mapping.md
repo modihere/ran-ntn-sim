@@ -59,3 +59,4 @@ This document provides explicit traceability between **3GPP Release 17/18 specif
 | **5.2.3** | RLC AM Sliding Window | Acknowledged transmission with TX/RX windows | `class RlcAm` | Window stall events, buffer occupancy vs RTT |
 | **5.2.3.2** | `t-PollRetransmit` | Timer preventing premature poll retransmission over large NTN RTT | `Timer pollRetransmitTimer` | False retransmissions vs timely ARQ recovery |
 | **5.2.3.3** | STATUS PDU Reporting | ACK/NACK reporting format for lost PDUs | `RlcAm::generateStatusPdu()` | STATUS PDU overhead, ARQ recovery latency |
+

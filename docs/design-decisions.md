@@ -50,3 +50,4 @@
 * **Consequences**:
   * Early demonstrable milestone with observable KPIs (e.g., Koffset insufficiency leading to RACH failure).
   * Subsequent modules (RLC AM, MAC, Schedulers) build upon a proven, end-to-end running core.
+

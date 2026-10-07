@@ -84,3 +84,4 @@ bool Timer::is_running() const {
 }
 
 } // namespace ntn::common
+

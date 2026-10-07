@@ -119,3 +119,4 @@ TEST(TimerTest, RestartedTimerCancelsPreviousTimeout) {
     EXPECT_EQ(fire_count, 1);
     EXPECT_EQ(sim.now(), 4000);
 }
+
