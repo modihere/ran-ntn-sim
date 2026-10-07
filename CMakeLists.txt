@@ -61,6 +61,7 @@ include_directories(
 )
 
 # Add subdirectories as modules are introduced
-# add_subdirectory(src)
+add_subdirectory(src)
 # add_subdirectory(simulator)
-# add_subdirectory(tests)
+add_subdirectory(tests)
+
