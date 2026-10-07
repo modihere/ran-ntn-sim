@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.20)
 project(ntn_ran_emulator
     VERSION 0.1.0
-    DESCRIPTION "3GPP-aligned NTN-Aware LTE/NR RAN Mobility & Timing Emulator"
+    DESCRIPTION "3GPP-aligned NTN-Aware 5G NR RAN Mobility & Timing Emulator"
     LANGUAGES CXX
 )
 

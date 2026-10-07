@@ -1,4 +1,4 @@
-# NTN-Aware LTE/NR RAN Mobility & Timing Emulator
+# NTN-Aware 5G NR RAN Mobility & Timing Emulator
 
 A 3GPP Release 17/18 aligned C++17 emulator connecting satellite orbital mechanics, non-terrestrial propagation physics, and RAN Layer 2/Layer 3 protocol procedures into a unified, executable, real-time discrete-event system.
 
@@ -101,7 +101,6 @@ During the live Terminal UI (TUI) simulation, the following parameters can be dy
 * `src/common/` — Event engine, discrete clock, timers, logging, and statistics.
 * `src/ntn/` — Orbital dynamics, geometry, slant range delay, Doppler, timing advance, and SIB19 model.
 * `src/nr/` — 5G NR L2/L3 protocol abstractions (RRC, RACH, MAC, HARQ, RLC AM/UM, Scheduler).
-* `src/lte/` — LTE-specific protocol adapters and legacy timing interfaces.
 * `simulator/` — Simulation harness, scenario runners, and terminal UI visualizer.
 * `docs/` — 3GPP mappings, architectural design, state machines, and decision records.
 * `tests/` — GoogleTest unit, integration, and scenario regression suites.

@@ -2,7 +2,7 @@
 
 ## 1. Architectural Philosophy
 
-The **NTN-Aware RAN Emulator** models the interaction between satellite physical propagation conditions and 3GPP cellular protocol stacks (LTE and NR Releases 17/18).
+The **NTN-Aware RAN Emulator** models the interaction between satellite physical propagation conditions and 3GPP 5G NR cellular protocol stacks (Releases 17/18).
 
 Rather than using continuous-time RF DSP or cycle-by-cycle physical modeling, the emulator utilizes an **event-driven discrete-event simulation (DES)** core. Discrete events represent state transitions across protocol layers and physical propagation milestones, preserving microsecond-accurate timing alignment without unnecessary CPU overhead.
 
@@ -32,7 +32,7 @@ flowchart TD
         SIB19["SIB19 Configuration Model"]
     end
 
-    subgraph RAN ["RAN Protocol Entities (src/nr, src/lte)"]
+    subgraph RAN ["RAN Protocol Entities (src/nr)"]
         RRC["RRC State Machine & NTN Config"]
         RACH["4-Step RACH (Msg1 to Msg4 Contention)"]
         MAC["MAC Layer (BSR, Grants, Multiplexing)"]
@@ -70,7 +70,7 @@ flowchart TD
   * Scheduling offset $K_{\text{offset}}$ for PUSCH/PUCCH/PRACH
   * TA drift rate $\dot{T}_{\text{TA}}$ and validity verification.
 
-### 3.3. 3GPP RAN Protocols (`src/nr/`, `src/lte/`)
+### 3.3. 3GPP RAN Protocols (`src/nr/`)
 * **`RachController`**:
   * Preamble transmission (Msg1) over physical PRACH occasion.
   * Timing window validation for Msg2 (RAR) taking round-trip service delay into account.
