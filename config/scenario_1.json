@@ -1,0 +1,19 @@
+{
+    "scs_khz": 15,
+    "duration_ms": 1000,
+    "update_interval_ms": 100,
+    "ue": {
+        "x_m": 0.0,
+        "y_m": 0.0,
+        "z_m": 0.0
+    },
+    "satellite": {
+        "start_x_m": 600000.0,
+        "start_y_m": 0.0,
+        "start_z_m": 600000.0,
+        "vel_x_mps": -7500.0,
+        "vel_y_mps": 0.0,
+        "vel_z_mps": 0.0
+    }
+}
+
