@@ -189,8 +189,7 @@ void run_simulation_instance(json& config, bool& wants_reset, bool& wants_quit) 
     std::function<void()> periodic_update;
     periodic_update = [&]() {
         Time_ns now = sim.now();
-        if (now > simulation_duration) return;
-
+        
         Position sat_pos = orbit.get_position_at(now);
         double slant_range = PropagationCalculator::calculate_slant_range(sat_pos, ue_pos);
         Time_ns owd = PropagationCalculator::calculate_one_way_delay(slant_range);
@@ -208,7 +207,37 @@ void run_simulation_instance(json& config, bool& wants_reset, bool& wants_quit) 
 
     bool prev_sync_valid = true;
 
-    while (sim.now() < simulation_duration) {
+    while (true) {
+        if (sim.now() >= simulation_duration) {
+            std::cout << "\n\033[33m[FINISHED] Simulation duration reached (" << (sim.now() / 1000000) << " ms)! Simulation paused.\033[0m\n";
+            while (true) {
+                std::cout << "[1] Modify Config (Increase duration to resume)\n[2] Reset\n[3] Quit\nChoice (default 1): ";
+                
+                std::string choice_str;
+                std::getline(std::cin, choice_str);
+                char choice = '1';
+                for (char ch : choice_str) { if (!std::isspace(ch)) { choice = ch; break; } }
+
+                if (choice == '3') { wants_quit = true; return; } 
+                else if (choice == '2') { wants_reset = true; return; } 
+                else if (choice == '1') {
+                    modify_config_menu(config);
+                    simulation_duration = config.value("duration_ms", 10000) * 1000000ULL;
+                    Velocity new_vel{config["satellite"]["vel_x_mps"], config["satellite"]["vel_y_mps"], config["satellite"]["vel_z_mps"]};
+                    Position curr_pos = orbit.get_position_at(sim.now());
+                    curr_pos.z_m = config["satellite"].value("start_z_m", 600000.0);
+                    orbit = LinearOrbitPropagator(curr_pos, new_vel, sim.now());
+                    timing_engine.set_k_offset_slots(config.value("k_offset_slots", 6));
+                    
+                    if (sim.now() < simulation_duration) {
+                        break; // Successfully increased, resume
+                    } else {
+                        std::cout << "\n\033[31mDuration must be greater than current time (" << (sim.now() / 1000000) << " ms) to resume.\033[0m\n";
+                    }
+                }
+            }
+            dashboard.clear();
+        }
         // --- INTERRUPT LOGIC ---
         if (ntn::ui::Keyboard::kbhit()) {
             char c = ntn::ui::Keyboard::getch();
