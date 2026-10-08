@@ -40,8 +40,9 @@ void modify_config_menu(json& config) {
         std::cout << "[4] satellite.vel_x_mps  : " << config["satellite"].value("vel_x_mps", -7500.0) << "\n";
         std::cout << "[5] k_offset_slots       : " << config.value("k_offset_slots", 6) << "\n";
         std::cout << "[6] rach_trigger_time_ms : " << config.value("rach_trigger_time_ms", 1000) << "\n";
+        std::cout << "[7] satellite.start_z_m  : " << config["satellite"].value("start_z_m", 600000.0) << "\n";
         std::cout << "[0] Go Back\n";
-        std::cout << "Select parameter to change (0-6): ";
+        std::cout << "Select parameter to change (0-7): ";
         
         std::string choice_str;
         std::getline(std::cin, choice_str);
@@ -56,6 +57,7 @@ void modify_config_menu(json& config) {
         else if (choice == '4') key = "satellite.vel_x_mps";
         else if (choice == '5') key = "k_offset_slots";
         else if (choice == '6') key = "rach_trigger_time_ms";
+        else if (choice == '7') key = "satellite.start_z_m";
         else {
             std::cout << "Invalid choice.\n";
             continue;
@@ -68,6 +70,8 @@ void modify_config_menu(json& config) {
 
         if (choice == '4') {
             config["satellite"]["vel_x_mps"] = val;
+        } else if (choice == '7') {
+            config["satellite"]["start_z_m"] = val;
         } else if (choice == '1' || choice == '2' || choice == '6') {
             config[key] = static_cast<uint64_t>(val);
         } else if (choice == '3' || choice == '5') {
@@ -189,6 +193,8 @@ void run_simulation_instance(json& config, bool& wants_reset, bool& wants_quit) 
     sim.schedule(0, periodic_update);
     dashboard.clear();
 
+    bool prev_sync_valid = true;
+
     while (sim.now() < simulation_duration) {
         // --- INTERRUPT LOGIC ---
         if (ntn::ui::Keyboard::kbhit()) {
@@ -209,9 +215,11 @@ void run_simulation_instance(json& config, bool& wants_reset, bool& wants_quit) 
                 else if (choice == '3') { wants_reset = true; return; } 
                 else if (choice == '2') {
                     modify_config_menu(config);
-                    // Dynamically apply vel & K_offset
+                    // Dynamically apply vel, height & K_offset
                     Velocity new_vel{config["satellite"]["vel_x_mps"], config["satellite"]["vel_y_mps"], config["satellite"]["vel_z_mps"]};
-                    orbit = LinearOrbitPropagator(orbit.get_position_at(sim.now()), new_vel, sim.now());
+                    Position curr_pos = orbit.get_position_at(sim.now());
+                    curr_pos.z_m = config["satellite"].value("start_z_m", 600000.0);
+                    orbit = LinearOrbitPropagator(curr_pos, new_vel, sim.now());
                     timing_engine.set_k_offset_slots(config.value("k_offset_slots", 6));
                     continue; // Re-show interrupt menu
                 } else {
@@ -245,15 +253,20 @@ void run_simulation_instance(json& config, bool& wants_reset, bool& wants_quit) 
         
         dashboard.render();
         
-        if (!sync_valid) {
-            std::cout << "\n\033[33m[SYNC DROPPED] Uplink Sync is INVALID! Simulation paused.\033[0m\n";
-            std::cout << "K_offset is too small for the current physical RTT or TA drift exceeded limits.\n";
+        if (now > 0 && sync_valid != prev_sync_valid) {
+            if (!sync_valid) {
+                std::cout << "\n\033[33m[SYNC DROPPED] Uplink Sync is INVALID! Simulation paused.\033[0m\n";
+                std::cout << "K_offset is too small for the current physical RTT or TA drift exceeded limits.\n";
+            } else {
+                std::cout << "\n\033[32m[SYNC RECOVERED] Uplink Sync is now VALID! Simulation paused.\033[0m\n";
+            }
+            
             while (true) {
-                std::cout << "[1] Resume (Force)\n[2] Modify Config (Fix K_offset/Vel)\n[3] Reset\n[4] Quit\nChoice (default 2): ";
+                std::cout << "[1] Resume (Force)\n[2] Modify Config\n[3] Reset\n[4] Quit\nChoice (default 1): ";
                 
                 std::string choice_str;
                 std::getline(std::cin, choice_str);
-                char choice = '2';
+                char choice = '1';
                 for (char ch : choice_str) { if (!std::isspace(ch)) { choice = ch; break; } }
 
                 if (choice == '4') { wants_quit = true; return; } 
@@ -261,7 +274,9 @@ void run_simulation_instance(json& config, bool& wants_reset, bool& wants_quit) 
                 else if (choice == '2') {
                     modify_config_menu(config);
                     Velocity new_vel{config["satellite"]["vel_x_mps"], config["satellite"]["vel_y_mps"], config["satellite"]["vel_z_mps"]};
-                    orbit = LinearOrbitPropagator(orbit.get_position_at(sim.now()), new_vel, sim.now());
+                    Position curr_pos = orbit.get_position_at(sim.now());
+                    curr_pos.z_m = config["satellite"].value("start_z_m", 600000.0);
+                    orbit = LinearOrbitPropagator(curr_pos, new_vel, sim.now());
                     timing_engine.set_k_offset_slots(config.value("k_offset_slots", 6));
                     continue; 
                 } else {
@@ -272,6 +287,8 @@ void run_simulation_instance(json& config, bool& wants_reset, bool& wants_quit) 
         } else {
             std::this_thread::sleep_for(std::chrono::milliseconds(50));
         }
+        
+        prev_sync_valid = sync_valid;
     }
 }
 

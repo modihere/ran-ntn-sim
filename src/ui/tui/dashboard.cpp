@@ -109,6 +109,10 @@ void Dashboard::render() {
         "                                        "
     };
 
+    // Ensure left pane has 18 lines to match right pane
+    left_pane.push_back("                                        ");
+    left_pane.push_back("                                        ");
+
     // Pad left pane properly so ANSI codes don't mess up width calculation
     for (auto& s : left_pane) {
         size_t visible_len = 0;
@@ -122,35 +126,39 @@ void Dashboard::render() {
     }
 
     const int W = 58;
-    const int H = 16;
+    const int H = 18;
     std::vector<std::string> right_pane(H, std::string(W, ' '));
     
-    // Draw Arc
-    right_pane[2] =  "                 .   -   '   -   .                  ";
-    right_pane[3] =  "             '                       '              ";
-    right_pane[4] =  "           '                           '            ";
-    right_pane[5] =  "         '                               '          ";
-    right_pane[6] =  "       .                                   .        ";
+    int cx = 29;
+    int cy = 16;
+    int rx = 27;
+    int ry = 13;
 
-    // Draw Ground
-    right_pane[12] = "======================[ UE ]======================";
+    // Dynamically Draw Arc
+    for (int deg = 0; deg <= 180; deg += 3) {
+        double r = deg * 3.14159265 / 180.0;
+        int ax = cx - (int)(std::cos(r) * rx);
+        int ay = cy - (int)(std::sin(r) * ry);
+        if (ax >= 0 && ax < W && ay >= 0 && ay < H) {
+            if (right_pane[ay][ax] == ' ') right_pane[ay][ax] = '.';
+        }
+    }
+
+    // Draw Ground exactly centered for W=58 (26 '=' + 6 char UE + 26 '=')
+    right_pane[16] = "==========================[ UE ]==========================";
 
     double rad = elevation_deg_ * 3.14159265 / 180.0;
-    int cx = 28;
-    int cy = 10;
-    int rx = 24;
-    int ry = 8;
     int sat_x = cx - (int)(std::cos(rad) * rx);
     int sat_y = cy - (int)(std::sin(rad) * ry);
     
     if (sat_x < 0) sat_x = 0; 
     if (sat_x >= W) sat_x = W - 1;
     if (sat_y < 0) sat_y = 0; 
-    if (sat_y > 11) sat_y = 11;
+    if (sat_y > 15) sat_y = 15;
 
     // If RACH is active or has happened, draw persistent beam
     if (rach_state_.find("WAIT") != std::string::npos || rach_state_.find("COMPLETED") != std::string::npos || line_persistent_) {
-        draw_line(right_pane, cx, 12, sat_x, sat_y, '*');
+        draw_line(right_pane, cx, 16, sat_x, sat_y, '*');
     }
 
     // Draw SAT
