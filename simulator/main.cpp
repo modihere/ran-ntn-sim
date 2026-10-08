@@ -159,18 +159,31 @@ void run_simulation_instance(json& config, bool& wants_reset, bool& wants_quit) 
     Time_ns update_interval = config.value("update_interval_ms", 100) * 1000000ULL;
     Time_ns rach_trigger = config.value("rach_trigger_time_ms", 1000) * 1000000ULL;
 
-    sim.schedule(rach_trigger, [&]() {
+    bool pending_rach = false;
+    Time_ns original_rach_trigger = 0;
+
+    auto trigger_rach_sequence = [&rach, &timing_engine, &sim]() {
         rach.trigger_rach();
         Time_ns owd = timing_engine.get_common_ta() / 2;
-        sim.schedule(owd + 5000000ULL, [&]() {
+        sim.schedule(owd + 5000000ULL, [&rach, &timing_engine, &sim, owd]() {
             if (rach.get_state() == ntn::nr::RachState::WAIT_MSG2) {
                 rach.receive_msg2(sim.now());
                 Time_ns msg3_arrival = sim.now() + owd + (timing_engine.get_k_offset_slots() * 1000000ULL) + 2000000ULL;
-                sim.schedule(msg3_arrival - sim.now() + 5000000ULL, [&]() {
+                sim.schedule(msg3_arrival - sim.now() + 5000000ULL, [&rach]() {
                     rach.receive_msg4(true);
                 });
             }
         });
+    };
+
+    sim.schedule(rach_trigger, [&]() {
+        if (!timing_engine.is_ul_sync_valid(sim.now())) {
+            pending_rach = true;
+            original_rach_trigger = rach_trigger;
+            log_cb("RACH delayed due to INVALID sync.");
+        } else {
+            trigger_rach_sequence();
+        }
     });
 
     std::function<void()> periodic_update;
@@ -289,6 +302,14 @@ void run_simulation_instance(json& config, bool& wants_reset, bool& wants_quit) 
         }
         
         prev_sync_valid = sync_valid;
+        
+        if (sync_valid && pending_rach) {
+            pending_rach = false;
+            std::stringstream ss;
+            ss << "RACH started (Originally config " << (original_rach_trigger / 1000000) << " ms) due to sync availability.";
+            log_cb(ss.str());
+            sim.schedule(0, trigger_rach_sequence);
+        }
     }
 }
 
