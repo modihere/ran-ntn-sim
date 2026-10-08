@@ -77,6 +77,7 @@ void Dashboard::render() {
     std::cout << " [ NR Protocol ]\n";
     std::cout << " RACH State:    " << rach_state_ << "\n";
     std::cout << "========================================================================\n";
+    std::cout << " (Press 'm' or 'Enter' for Menu / Pause) \n";
     std::cout << std::flush;
 }
 

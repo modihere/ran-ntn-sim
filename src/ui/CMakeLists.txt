@@ -1,5 +1,6 @@
 add_library(ntn_ui
     tui/dashboard.cpp
+    tui/keyboard.cpp
 )
 
 target_include_directories(ntn_ui PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
