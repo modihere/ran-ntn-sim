@@ -14,6 +14,8 @@
         "vel_x_mps": -7500.0,
         "vel_y_mps": 0.0,
         "vel_z_mps": 0.0
-    }
+    },
+    "k_offset_slots": 6,
+    "rach_trigger_time_ms": 1000
 }
 

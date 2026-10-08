@@ -2,6 +2,7 @@
 
 #include <string>
 #include <cstdint>
+#include <deque>
 
 namespace ntn::ui {
 
@@ -18,11 +19,14 @@ public:
     // Render
     void render();
     void clear() const;
+    void add_log(const std::string& msg);
 
 private:
     void enable_virtual_terminal();
 
     bool first_render_{true};
+    std::deque<std::string> logs_;
+    const size_t MAX_LOGS = 5;
     uint64_t current_time_ns_{0};
     double slant_range_km_{0.0};
     double elevation_deg_{0.0};
@@ -31,7 +35,7 @@ private:
     uint64_t common_ta_ns_{0};
     bool sync_valid_{true};
     std::string rach_state_{"IDLE"};
+    bool line_persistent_{false};
 };
 
 } // namespace ntn::ui
-

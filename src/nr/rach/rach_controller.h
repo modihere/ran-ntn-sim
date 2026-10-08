@@ -16,7 +16,7 @@ enum class RachState {
 
 class RachController {
 public:
-    RachController(common::Simulator& sim, timing::NtnTimingEngine& timing);
+    RachController(common::Simulator& sim, timing::NtnTimingEngine& timing, std::function<void(const std::string&)> log_cb = nullptr);
     
     // Starts the RACH procedure (sends Msg1)
     void trigger_rach();
@@ -32,6 +32,7 @@ public:
 private:
     common::Simulator& sim_;
     timing::NtnTimingEngine& timing_;
+    std::function<void(const std::string&)> log_cb_;
     RachState state_{RachState::IDLE};
     
     common::Timer ra_response_window_timer_;

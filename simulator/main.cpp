@@ -13,6 +13,7 @@
 #include <chrono>
 #include <sstream>
 #include <iomanip>
+#include <vector>
 
 using namespace ntn::common;
 using namespace ntn::geometry;
@@ -30,18 +31,63 @@ auto rach_state_to_string = [](ntn::nr::RachState state) -> std::string {
     }
 };
 
+void modify_config_menu(json& config) {
+    while (true) {
+        std::cout << "\n\033[36m--- Modify Configuration ---\033[0m\n";
+        std::cout << "[1] duration_ms          : " << config.value("duration_ms", 10000) << "\n";
+        std::cout << "[2] update_interval_ms   : " << config.value("update_interval_ms", 100) << "\n";
+        std::cout << "[3] scs_khz              : " << config.value("scs_khz", 15) << "\n";
+        std::cout << "[4] satellite.vel_x_mps  : " << config["satellite"].value("vel_x_mps", -7500.0) << "\n";
+        std::cout << "[5] k_offset_slots       : " << config.value("k_offset_slots", 6) << "\n";
+        std::cout << "[6] rach_trigger_time_ms : " << config.value("rach_trigger_time_ms", 1000) << "\n";
+        std::cout << "[0] Go Back\n";
+        std::cout << "Select parameter to change (0-6): ";
+        
+        std::string choice_str;
+        std::getline(std::cin, choice_str);
+        char choice = choice_str.empty() ? '0' : choice_str[0];
+        
+        if (choice == '0') break;
+
+        std::string key = "";
+        if (choice == '1') key = "duration_ms";
+        else if (choice == '2') key = "update_interval_ms";
+        else if (choice == '3') key = "scs_khz";
+        else if (choice == '4') key = "satellite.vel_x_mps";
+        else if (choice == '5') key = "k_offset_slots";
+        else if (choice == '6') key = "rach_trigger_time_ms";
+        else {
+            std::cout << "Invalid choice.\n";
+            continue;
+        }
+
+        std::cout << "Enter new value for " << key << ": ";
+        double val;
+        std::cin >> val;
+        std::cin.ignore(10000, '\n');
+
+        if (choice == '4') {
+            config["satellite"]["vel_x_mps"] = val;
+        } else if (choice == '1' || choice == '2' || choice == '6') {
+            config[key] = static_cast<uint64_t>(val);
+        } else if (choice == '3' || choice == '5') {
+            config[key] = static_cast<uint32_t>(val);
+        }
+    }
+}
+
 bool interactive_menu(json& config) {
     while (true) {
         std::cout << "\n\033[36m--- NTN-Aware 5G NR RAN Emulator Menu ---\033[0m\n";
-        std::cout << "[s] Start Simulation\n";
-        std::cout << "[m] Modify Config Parameter\n";
-        std::cout << "[q] Quit\n";
+        std::cout << "[1] Start / Resume Simulation\n";
+        std::cout << "[2] Modify Config Parameters\n";
+        std::cout << "[3] Quit\n";
         std::cout << "Choice: ";
         
         std::string choice_str;
         std::getline(std::cin, choice_str);
         
-        char choice = 's';
+        char choice = '1';
         for (char ch : choice_str) {
             if (!std::isspace(ch)) {
                 choice = ch;
@@ -49,29 +95,13 @@ bool interactive_menu(json& config) {
             }
         }
 
-        if (choice == 'q') return false; // stop
-
-        if (choice == 'm') {
-            std::string key;
-            double val;
-            std::cout << "Available keys: duration_ms, update_interval_ms, scs_khz, satellite.vel_x_mps\n";
-            std::cout << "Enter key: ";
-            std::cin >> key;
-            std::cout << "Enter new value: ";
-            std::cin >> val;
-
-            if (key == "duration_ms" || key == "update_interval_ms" || key == "scs_khz") {
-                config[key] = val;
-            } else if (key == "satellite.vel_x_mps") {
-                config["satellite"]["vel_x_mps"] = val;
-            } else {
-                std::cout << "Unknown key.\n";
-            }
-            std::cin.ignore(10000, '\n');
-            continue; // show menu again
+        if (choice == '3') return false; // quit
+        if (choice == '2') {
+            modify_config_menu(config);
+            continue;
         }
 
-        return true;
+        return true; // start
     }
 }
 
@@ -87,11 +117,19 @@ void run_simulation_instance(json& config, bool& wants_reset, bool& wants_quit) 
 
     Simulator sim;
     NtnTimingEngine timing_engine;
-    ntn::nr::RachController rach(sim, timing_engine);
     ntn::ui::Dashboard dashboard;
+
+    auto log_cb = [&dashboard, &sim](const std::string& msg) {
+        std::stringstream ss;
+        ss << "[LOG] " << (sim.now() / 1000000) << " ms: " << msg;
+        dashboard.add_log(ss.str());
+    };
+
+    ntn::nr::RachController rach(sim, timing_engine, log_cb);
 
     uint32_t scs = config.value("scs_khz", 15);
     timing_engine.set_scs_khz(scs);
+    timing_engine.set_k_offset_slots(config.value("k_offset_slots", 6));
 
     Position ue_pos{
         config["ue"]["x_m"],
@@ -115,8 +153,9 @@ void run_simulation_instance(json& config, bool& wants_reset, bool& wants_quit) 
     
     Time_ns simulation_duration = config.value("duration_ms", 10000) * 1000000ULL;
     Time_ns update_interval = config.value("update_interval_ms", 100) * 1000000ULL;
+    Time_ns rach_trigger = config.value("rach_trigger_time_ms", 1000) * 1000000ULL;
 
-    sim.schedule(1000000000ULL, [&]() {
+    sim.schedule(rach_trigger, [&]() {
         rach.trigger_rach();
         Time_ns owd = timing_engine.get_common_ta() / 2;
         sim.schedule(owd + 5000000ULL, [&]() {
@@ -148,71 +187,35 @@ void run_simulation_instance(json& config, bool& wants_reset, bool& wants_quit) 
     };
 
     sim.schedule(0, periodic_update);
-
     dashboard.clear();
 
-    bool is_paused = false;
     while (sim.now() < simulation_duration) {
-        if (is_paused) {
-            dashboard.clear(); // Clear before menu
-            if (!interactive_menu(config)) {
-                wants_quit = true;
-                return;
-            }
-            // User might have chosen reset
-            // We should check if they actually pressed 'r'
-            // Oh, wait, interactive_menu doesn't easily convey 'reset' vs 'resume'.
-            // Let's refactor interactive_menu logic here for interrupt!
-        }
-        
         // --- INTERRUPT LOGIC ---
         if (ntn::ui::Keyboard::kbhit()) {
             char c = ntn::ui::Keyboard::getch();
-            // Ignore any leftover newlines
-            if (c == '\n' || c == '\r') {
-                // If it's just a newline in buffer, we can either pause or just continue.
-                // Let's pause to be safe.
-            }
-
+            if (c == '\n' || c == '\r') { } // Ignore lone newlines
+            
             dashboard.clear();
             while (true) {
                 std::cout << "\n\033[33m[INTERRUPT] Simulation paused.\033[0m\n";
-                std::cout << "[r] Reset  |  [q] Quit  |  [m] Modify config  |  [s] Resume\nChoice (default 's'): ";
+                std::cout << "[1] Resume\n[2] Modify Config\n[3] Reset\n[4] Quit\nChoice (default 1): ";
                 
                 std::string choice_str;
                 std::getline(std::cin, choice_str);
-                
-                char choice = 's';
-                for (char ch : choice_str) {
-                    if (!std::isspace(ch)) {
-                        choice = ch;
-                        break;
-                    }
-                }
+                char choice = '1';
+                for (char ch : choice_str) { if (!std::isspace(ch)) { choice = ch; break; } }
 
-                if (choice == 'q') {
-                    wants_quit = true;
-                    return;
-                } else if (choice == 'r') {
-                    wants_reset = true;
-                    return;
-                } else if (choice == 'm') {
-                    std::string key; double val;
-                    std::cout << "Available keys: duration_ms, update_interval_ms, scs_khz, satellite.vel_x_mps\nKey: ";
-                    std::cin >> key;
-                    std::cout << "New value: ";
-                    std::cin >> val;
-                    std::cin.ignore(10000, '\n'); // flush
-                    if (key == "duration_ms" || key == "update_interval_ms" || key == "scs_khz") config[key] = val;
-                    else if (key == "satellite.vel_x_mps") {
-                        config["satellite"]["vel_x_mps"] = val;
-                        Velocity sat_vel{config["satellite"]["vel_x_mps"], config["satellite"]["vel_y_mps"], config["satellite"]["vel_z_mps"]};
-                        orbit = LinearOrbitPropagator(orbit.get_position_at(sim.now()), sat_vel, sim.now());
-                    }
+                if (choice == '4') { wants_quit = true; return; } 
+                else if (choice == '3') { wants_reset = true; return; } 
+                else if (choice == '2') {
+                    modify_config_menu(config);
+                    // Dynamically apply vel & K_offset
+                    Velocity new_vel{config["satellite"]["vel_x_mps"], config["satellite"]["vel_y_mps"], config["satellite"]["vel_z_mps"]};
+                    orbit = LinearOrbitPropagator(orbit.get_position_at(sim.now()), new_vel, sim.now());
+                    timing_engine.set_k_offset_slots(config.value("k_offset_slots", 6));
                     continue; // Re-show interrupt menu
                 } else {
-                    // Resume
-                    break;
+                    break; // Resume
                 }
             }
             dashboard.clear();
@@ -234,7 +237,7 @@ void run_simulation_instance(json& config, bool& wants_reset, bool& wants_quit) 
         dashboard.update_simulation_time(now);
         double elevation = 90.0 - ((slant_range - 600000.0) / 400000.0) * 45.0;
         if (elevation < 0) elevation = 0;
-        if (elevation > 90) elevation = 90;
+        if (elevation > 180) elevation = 180;
         
         dashboard.update_geometry(slant_range / 1000.0, elevation, ss.str());
         dashboard.update_timing(timing_engine.get_k_offset_slots(), timing_engine.get_common_ta(), sync_valid);
@@ -243,10 +246,28 @@ void run_simulation_instance(json& config, bool& wants_reset, bool& wants_quit) 
         dashboard.render();
         
         if (!sync_valid) {
-            std::cout << "\n\033[33m[INTERRUPT] Uplink Sync is INVALID! Simulation paused.\033[0m\n";
-            std::cout << "Press ENTER to resume simulation... " << std::flush;
-            std::cin.ignore(10000, '\n'); 
-            std::cin.get();
+            std::cout << "\n\033[33m[SYNC DROPPED] Uplink Sync is INVALID! Simulation paused.\033[0m\n";
+            std::cout << "K_offset is too small for the current physical RTT or TA drift exceeded limits.\n";
+            while (true) {
+                std::cout << "[1] Resume (Force)\n[2] Modify Config (Fix K_offset/Vel)\n[3] Reset\n[4] Quit\nChoice (default 2): ";
+                
+                std::string choice_str;
+                std::getline(std::cin, choice_str);
+                char choice = '2';
+                for (char ch : choice_str) { if (!std::isspace(ch)) { choice = ch; break; } }
+
+                if (choice == '4') { wants_quit = true; return; } 
+                else if (choice == '3') { wants_reset = true; return; } 
+                else if (choice == '2') {
+                    modify_config_menu(config);
+                    Velocity new_vel{config["satellite"]["vel_x_mps"], config["satellite"]["vel_y_mps"], config["satellite"]["vel_z_mps"]};
+                    orbit = LinearOrbitPropagator(orbit.get_position_at(sim.now()), new_vel, sim.now());
+                    timing_engine.set_k_offset_slots(config.value("k_offset_slots", 6));
+                    continue; 
+                } else {
+                    break; // Resume
+                }
+            }
             dashboard.clear();
         } else {
             std::this_thread::sleep_for(std::chrono::milliseconds(50));

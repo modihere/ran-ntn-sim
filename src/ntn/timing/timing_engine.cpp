@@ -11,6 +11,10 @@ void NtnTimingEngine::set_scs_khz(uint32_t scs_khz) {
     else slot_duration_ns_ = 1000000;
 }
 
+void NtnTimingEngine::set_k_offset_slots(uint32_t slots) {
+    k_offset_slots_ = slots;
+}
+
 void NtnTimingEngine::update_geometry(common::Time_ns one_way_delay) {
     current_owd_ns_ = one_way_delay;
     if (last_ta_update_owd_ns_ == 0) {
@@ -31,8 +35,7 @@ common::Time_ns NtnTimingEngine::get_ue_ta() const {
 }
 
 uint32_t NtnTimingEngine::get_k_offset_slots() const {
-    common::Time_ns rtt = 2 * current_owd_ns_;
-    return static_cast<uint32_t>((rtt + slot_duration_ns_ - 1) / slot_duration_ns_);
+    return k_offset_slots_;
 }
 
 common::Time_ns NtnTimingEngine::calculate_expected_ul_arrival(common::Time_ns tx_time) const {
@@ -41,11 +44,19 @@ common::Time_ns NtnTimingEngine::calculate_expected_ul_arrival(common::Time_ns t
 
 bool NtnTimingEngine::is_ul_sync_valid(common::Time_ns current_time) const {
     (void)current_time;
+    
+    // 1. K_offset violation check: RTT > K_offset_time
+    common::Time_ns rtt = 2 * current_owd_ns_;
+    common::Time_ns k_offset_time = k_offset_slots_ * slot_duration_ns_;
+    // A small processing margin N2 could be added here, but for simple modeling:
+    if (rtt > k_offset_time) {
+        return false;
+    }
+
+    // 2. CP Drift threshold (e.g. 16us)
     common::Time_ns drift = (current_owd_ns_ > last_ta_update_owd_ns_) ? 
                             (current_owd_ns_ - last_ta_update_owd_ns_) : 
                             (last_ta_update_owd_ns_ - current_owd_ns_);
-                            
-    // Threshold set to 16us for testing SyncValidity
     common::Time_ns threshold = 16000; 
     
     return drift <= threshold;
