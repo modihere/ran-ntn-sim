@@ -15,6 +15,10 @@ void NtnTimingEngine::set_k_offset_slots(uint32_t slots) {
     k_offset_slots_ = slots;
 }
 
+void NtnTimingEngine::set_ul_sync_validity_duration(common::Time_ns duration) {
+    ul_sync_validity_duration_ = duration;
+}
+
 void NtnTimingEngine::update_geometry(common::Time_ns one_way_delay) {
     current_owd_ns_ = one_way_delay;
     if (last_ta_update_owd_ns_ == 0) {
@@ -22,8 +26,10 @@ void NtnTimingEngine::update_geometry(common::Time_ns one_way_delay) {
     }
 }
 
-void NtnTimingEngine::update_ta() {
+void NtnTimingEngine::update_ta(common::Time_ns current_time) {
     last_ta_update_owd_ns_ = current_owd_ns_;
+    last_ta_update_time_ = current_time;
+    has_synced_ = true;
 }
 
 common::Time_ns NtnTimingEngine::get_common_ta() const {
@@ -43,23 +49,28 @@ common::Time_ns NtnTimingEngine::calculate_expected_ul_arrival(common::Time_ns t
 }
 
 bool NtnTimingEngine::is_ul_sync_valid(common::Time_ns current_time) const {
-    (void)current_time;
-    
-    // 1. K_offset violation check: RTT > K_offset_time
+    // 1. Must have received SIB19 / synced at least once
+    if (!has_synced_) {
+        return false;
+    }
+
+    // 2. UL Sync Validity Duration timer (from SIB19 ulSyncValidityDuration IE)
+    //    If the timer has expired since the last TA update, sync is invalid.
+    //    The network sets this value to account for expected orbital drift.
+    if (ul_sync_validity_duration_ > 0) {
+        if ((current_time - last_ta_update_time_) > ul_sync_validity_duration_) {
+            return false;
+        }
+    }
+
+    // 3. K_offset violation check: RTT > K_offset_time
     common::Time_ns rtt = 2 * current_owd_ns_;
     common::Time_ns k_offset_time = k_offset_slots_ * slot_duration_ns_;
-    // A small processing margin N2 could be added here, but for simple modeling:
     if (rtt > k_offset_time) {
         return false;
     }
 
-    // 2. CP Drift threshold (e.g. 16us)
-    common::Time_ns drift = (current_owd_ns_ > last_ta_update_owd_ns_) ? 
-                            (current_owd_ns_ - last_ta_update_owd_ns_) : 
-                            (last_ta_update_owd_ns_ - current_owd_ns_);
-    common::Time_ns threshold = 16000; 
-    
-    return drift <= threshold;
+    return true;
 }
 
 } // namespace ntn::timing

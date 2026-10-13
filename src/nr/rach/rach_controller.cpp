@@ -8,6 +8,18 @@ RachController::RachController(common::Simulator& sim, timing::NtnTimingEngine& 
       contention_resolution_timer_(sim) {}
 
 void RachController::trigger_rach() {
+    if (state_ == RachState::WAITING_FOR_SIB19) {
+        if (log_cb_) log_cb_("[RACH] Blocked: Waiting for SIB19.");
+        else spdlog::warn("RACH blocked: Waiting for SIB19.");
+        return;
+    }
+    
+    if (!timing_.is_ul_sync_valid(sim_.now())) {
+        if (log_cb_) log_cb_("[RACH] Blocked: UL Sync Invalid or Expired.");
+        else spdlog::warn("RACH blocked: UL Sync Invalid or Expired.");
+        return;
+    }
+
     if (state_ != RachState::IDLE && state_ != RachState::FAILED) {
         if (log_cb_) log_cb_("[RACH] Warning: RACH already in progress.");
         else spdlog::warn("RACH already in progress.");
@@ -24,6 +36,38 @@ void RachController::trigger_rach() {
     common::Time_ns rar_window = 10000000ULL + rtt; 
     
     ra_response_window_timer_.start(rar_window, [this]() { on_rar_timeout(); });
+}
+
+void RachController::receive_sib19() {
+    if (state_ == RachState::WAITING_FOR_SIB19 || state_ == RachState::FAILED) {
+        state_ = RachState::IDLE;
+        if (log_cb_) log_cb_("[RRC] SIB19 Config Activated. RACH is now permitted.");
+    }
+}
+
+void RachController::lose_sync() {
+    if (state_ != RachState::WAITING_FOR_SIB19) {
+        state_ = RachState::WAITING_FOR_SIB19;
+        if (log_cb_) log_cb_("[RRC] Sync Lost. Connection dropped. RACH blocked until SIB19 re-acquired.");
+    }
+}
+
+void RachController::lose_sync_and_flush() {
+    state_ = RachState::WAITING_FOR_SIB19;
+    if (log_cb_) {
+        log_cb_("\033[31m[UL-SYNC-EXPIRY] Timer expired! Connection lost. Flushing MAC buffers. RACH blocked until SIB19 re-acquired.\033[0m");
+    } else {
+        spdlog::warn("[UL-SYNC-EXPIRY] Timer expired! Flushing MAC buffers.");
+    }
+}
+
+void RachController::restore_connected() {
+    state_ = RachState::CONNECTED;
+    if (log_cb_) {
+        log_cb_("\033[32m[RRC] SIB19 reacquired over-the-air. UL sync restored. UE returned to CONNECTED state.\033[0m");
+    } else {
+        spdlog::info("[RRC] SIB19 reacquired. Returned to CONNECTED.");
+    }
 }
 
 void RachController::receive_msg2(common::Time_ns rx_time) {

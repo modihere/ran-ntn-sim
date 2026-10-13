@@ -32,9 +32,10 @@ void Dashboard::update_simulation_time(uint64_t time_ns) {
     current_time_ns_ = time_ns;
 }
 
-void Dashboard::update_geometry(double slant_range_km, double elevation_deg, const std::string& sat_pos_str) {
+void Dashboard::update_geometry(double slant_range_km, double elevation_deg, double sky_angle_deg, const std::string& sat_pos_str) {
     slant_range_km_ = slant_range_km;
     elevation_deg_ = elevation_deg;
+    sky_angle_deg_ = sky_angle_deg;
     sat_pos_str_ = sat_pos_str;
 }
 
@@ -53,6 +54,10 @@ void Dashboard::add_log(const std::string& msg) {
     if (logs_.size() > MAX_LOGS) {
         logs_.pop_front();
     }
+}
+
+void Dashboard::add_event_marker(double sky_angle_deg, char type) {
+    event_markers_.push_back({sky_angle_deg, type});
 }
 
 // Bresenham's line algorithm
@@ -147,7 +152,7 @@ void Dashboard::render() {
     // Draw Ground exactly centered for W=58 (26 '=' + 6 char UE + 26 '=')
     right_pane[16] = "==========================[ UE ]==========================";
 
-    double rad = elevation_deg_ * 3.14159265 / 180.0;
+    double rad = sky_angle_deg_ * 3.14159265 / 180.0;
     int sat_x = cx - (int)(std::cos(rad) * rx);
     int sat_y = cy - (int)(std::sin(rad) * ry);
     
@@ -156,9 +161,31 @@ void Dashboard::render() {
     if (sat_y < 0) sat_y = 0; 
     if (sat_y > 15) sat_y = 15;
 
-    // If RACH is active or has happened, draw persistent beam
-    if (rach_state_.find("WAIT") != std::string::npos || rach_state_.find("COMPLETED") != std::string::npos || line_persistent_) {
+    // If RACH is active or has happened, draw persistent beam, ONLY if sync is valid
+    if (sync_valid_ && (rach_state_.find("WAIT") != std::string::npos || 
+                        rach_state_.find("COMPLETED") != std::string::npos || 
+                        rach_state_.find("CONNECTED") != std::string::npos || 
+                        line_persistent_)) {
         draw_line(right_pane, cx, 16, sat_x, sat_y, '*');
+    }
+
+    // Draw Event Markers on arc ('R' on arc, 'X' directly below arc so they never collide)
+    for (const auto& marker : event_markers_) {
+        double r = marker.sky_angle_deg * 3.14159265 / 180.0;
+        int mx = cx - (int)(std::cos(r) * rx);
+        int my = cy - (int)(std::sin(r) * ry);
+        if (mx >= 0 && mx < W) {
+            if (marker.type == 'R') {
+                if (my >= 0 && my < 16) {
+                    right_pane[my][mx] = 'R';
+                }
+            } else if (marker.type == 'X') {
+                int y_below = my + 1;
+                if (y_below >= 0 && y_below < 16) {
+                    right_pane[y_below][mx] = 'X';
+                }
+            }
+        }
     }
 
     // Draw SAT
@@ -167,6 +194,9 @@ void Dashboard::render() {
             right_pane[sat_y].replace(sat_x - 2, 5, "[SAT]");
         }
     }
+
+    // Legend line below ground
+    right_pane[17] = "Arc: '.' Orbit  '*' Beam  'R' Reacquire  'X' Sync Lost";
 
     for (size_t i = 0; i < left_pane.size() && i < right_pane.size(); ++i) {
         std::cout << left_pane[i] << " | " << right_pane[i] << "\n";

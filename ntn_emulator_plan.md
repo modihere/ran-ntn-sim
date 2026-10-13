@@ -9,20 +9,19 @@ We are evaluating our trajectory against the original project specification to e
 * ✅ **Phase 4 (4-Step RACH Procedure with Timing Sensitivity)**: Random Access Procedure state machine modeled in `src/nr/rach/rach_controller.h/cpp` using the common DES engine, with extended `ra-ResponseWindow`.
 
 * ✅ **Phase 5 (Real-time Terminal Dashboard (TUI))**: Interactive loop implemented. Features dynamic RACH beam, satellite tracking, real-time config modification (speed, K_offset, height), persistent event logs, and dynamic interrupt logic based on uplink sync state.
+* ✅ **Phase 6 (SIB19 over-the-air broadcasting & Uplink Sync Lifecycle)**: SIB19 `ntn-Config` model implemented. Over-the-air broadcast in SI window, ephemeris-based TA updates, RACH gating, autonomous reacquisition vs. UL sync validity expiration lifecycle (with MAC buffer flush and recovery), wide sky arc sweep, dedicated TUI event markers (`'R'`/`'X'`), and complete log history viewer.
 
-**Next Immediate Goal: Phase 6 (SIB19 over-the-air broadcasting)**
-We need to model the reading of System Information Block 19 (SIB19) by the UE over-the-air before it initiates the RACH procedure. 
-- The UE must first successfully receive a simulated SIB19 payload (with ephemeris data).
-- The `K_offset` and Feeder Link Delay (Common TA component) should be passed via this block.
-- The UE uses the ephemeris data to calculate its specific Service Link Delay.
-- Once configured with SIB19, the UE is permitted to trigger RACH.
+**Next Immediate Goal: Phase 7 (MAC Layer & HARQ Process Management)**
+Model the L2 data plane procedures following initial access:
+- Uplink data scheduling ($K_2 + K_{\text{offset}}$).
+- Extended HARQ RTT feedback timelines over satellite delay.
+- 3GPP Rel-17 HARQ disabling switch (comparing process stall vs throughput).
+- Buffer Status Reporting (BSR) and Logical Channel Prioritization (LCP).
 
 ## Current Context
-- The emulator codebase is currently stable. All 19 unit tests pass.
-- We have 3 local commits pending to be pushed to `origin/develop`. (The earliest 8 were successfully pushed).
-- There are uncommitted, local modifications in `config/scenario_1.json`.
-- The simulation loop handles interactive interruption natively and is fully prepared for event-driven extensions like SIB19 broadcasting.
+- The emulator codebase is fully verified and stable. All 22 unit tests pass.
+- Autonomous simulation runs end-to-end with persistent disk streaming (`ntn_simulation.log`).
 
 ## Verification Plan
-1. Ensure the new SIB19 event correctly blocks RACH initiation until successfully processed.
-2. Run `./build/bin/simulator.exe config/scenario_1.json` to manually verify the dashboard accurately reflects the new timing structure.
+1. Unit tests: `./build/bin/unit_tests.exe` (22/22 pass).
+2. Live emulator: `./build/bin/simulator.exe config/scenario_1.json`.
