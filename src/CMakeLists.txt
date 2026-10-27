@@ -1,5 +1,5 @@
 add_subdirectory(common)
 add_subdirectory(ntn)
-add_subdirectory(nr)
-
+add_subdirectory(ue)
+add_subdirectory(gnb)
 add_subdirectory(ui)

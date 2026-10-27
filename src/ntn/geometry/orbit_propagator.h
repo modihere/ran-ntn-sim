@@ -1,3 +1,11 @@
+/**
+ * @file orbit_propagator.h
+ * @brief Linear Orbit Propagator for satellite trajectory modeling in NTN.
+ *
+ * Implements simplified constant-velocity linear satellite orbit propagation
+ * in Cartesian ECEF/ground coordinates for L2/L3 protocol emulation.
+ */
+
 #pragma once
 
 #include "coordinate.h"
@@ -5,16 +13,31 @@
 
 namespace ntn::geometry {
 
-// Simplified linear orbit propagator for L2/L3 protocol emulation.
-// Moves a satellite in a straight line relative to a stationary ground frame.
+/**
+ * @class LinearOrbitPropagator
+ * @brief Propagates satellite position over time given initial coordinates and velocity.
+ */
 class LinearOrbitPropagator {
 public:
+    /**
+     * @brief Constructs the linear orbit propagator.
+     * @param initial_pos Initial Cartesian position [m] at initial_time.
+     * @param velocity Constant Cartesian velocity vector [m/s].
+     * @param initial_time Epoch timestamp in nanoseconds corresponding to initial_pos.
+     */
     LinearOrbitPropagator(Position initial_pos, Velocity velocity, common::Time_ns initial_time);
 
-    // Calculate the position of the satellite at the given simulation time
+    /**
+     * @brief Calculates satellite coordinates at a given simulation timestamp.
+     * @param current_time Simulation time in nanoseconds.
+     * @return Position Cartesian position vector at current_time.
+     */
     Position get_position_at(common::Time_ns current_time) const;
 
-    // Get the configured constant velocity
+    /**
+     * @brief Returns configured constant orbital velocity vector.
+     * @return Velocity Cartesian velocity in m/s.
+     */
     Velocity get_velocity() const;
 
 private:
@@ -24,4 +47,3 @@ private:
 };
 
 } // namespace ntn::geometry
-

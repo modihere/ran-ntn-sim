@@ -1,3 +1,11 @@
+/**
+ * @file test_geometry.cpp
+ * @brief Unit tests for NTN 3D orbital geometry, slant range, and Doppler calculations.
+ *
+ * Validates Cartesian 3D distance formulas, line-of-sight slant range calculations,
+ * one-way propagation delays, Doppler shift, and satellite elevation angles.
+ */
+
 #include <gtest/gtest.h>
 #include "../../src/ntn/geometry/coordinate.h"
 #include "../../src/ntn/geometry/orbit_propagator.h"

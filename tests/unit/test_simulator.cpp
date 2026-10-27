@@ -1,3 +1,11 @@
+/**
+ * @file test_simulator.cpp
+ * @brief Unit tests for the core Discrete-Event Simulator engine and event timers.
+ *
+ * Validates discrete-event queue scheduling, chronological time progression,
+ * monotonic event ordering, and cancellable timer behaviors.
+ */
+
 #include <gtest/gtest.h>
 #include "simulator.h"
 

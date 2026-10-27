@@ -9,12 +9,11 @@ target_link_libraries(unit_tests
     PRIVATE
     ntn_common
     ntn_geometry
-    ntn_timing
-    ntn_nr
+    ntn_ue
+    ntn_gnb
     spdlog::spdlog
     GTest::gtest_main
 )
 
 include(GoogleTest)
 gtest_discover_tests(unit_tests)
-

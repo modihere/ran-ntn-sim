@@ -21,7 +21,7 @@
         "reacquisition_success_prob": 0.5,
         "sync_loss_recovery_gap_ms": 1500,
         "k_offset_slots": 6,
-        "ta_common": 4000,
+        "service_link_ta": 4000,
         "ephemeris_info": {
            "x": 600000.0, "y": 0.0, "z": 600000.0,
            "vx": -7500.0, "vy": 0.0, "vz": 0.0
